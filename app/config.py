@@ -1,7 +1,7 @@
 import logging
 import os
 from functools import lru_cache
-from typing import Optional
+from typing import List, Optional
 from dotenv import load_dotenv
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,9 +20,9 @@ class Settings(BaseSettings):
         default="",
         description="Bot token from @BotFather",
     )
-    ALLOWED_CHAT_ID: int = Field(
-        default=0,
-        description="Telegram chat ID allowed to interact with the bot",
+    ALLOWED_CHAT_IDS: List[int] = Field(
+        default_factory=list,
+        description="List of Telegram chat IDs allowed to interact with the bot",
     )
 
     # OpenRouter / LLM Configuration
@@ -101,23 +101,27 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @field_validator("ALLOWED_CHAT_ID", mode="before")
+    @field_validator("ALLOWED_CHAT_IDS", mode="before")
     @classmethod
-    def parse_chat_id(cls, v):
+    def parse_chat_ids(cls, v):
         if isinstance(v, str):
             v = v.strip()
             if not v:
-                return 0
-            return int(v)
-        return v or 0
+                return []
+            return [int(x.strip()) for x in v.split(",") if x.strip()]
+        if isinstance(v, (int, float)):
+            return [int(v)]
+        if isinstance(v, list):
+            return [int(x) for x in v if x is not None]
+        return []
 
     def validate_runtime_keys(self) -> None:
         """Log warnings or validation notices for essential runtime keys."""
         missing = []
         if not self.TELEGRAM_BOT_TOKEN:
             missing.append("TELEGRAM_BOT_TOKEN")
-        if not self.ALLOWED_CHAT_ID:
-            missing.append("ALLOWED_CHAT_ID")
+        if not self.ALLOWED_CHAT_IDS:
+            missing.append("ALLOWED_CHAT_IDS")
         if not self.OPENROUTER_API_KEY:
             missing.append("OPENROUTER_API_KEY")
 

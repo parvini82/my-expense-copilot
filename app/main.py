@@ -112,7 +112,8 @@ async def health_check():
     return {
         "status": "healthy",
         "bot_polling": bot_running,
-        "allowed_chat_id_configured": bool(settings.ALLOWED_CHAT_ID),
+        "allowed_chat_ids_configured": bool(settings.ALLOWED_CHAT_IDS),
+        "allowed_chat_ids_count": len(settings.ALLOWED_CHAT_IDS),
         "openrouter_configured": bool(settings.OPENROUTER_API_KEY),
         "google_sheets_configured": google_sheets_db.is_configured(),
         "google_sheet_id": settings.GOOGLE_SHEET_ID or None,
@@ -202,8 +203,11 @@ async def get_pending_transactions():
 async def clear_pending_transactions():
     """Clear all pending transactions from memory."""
     settings = get_settings()
-    removed = await state_manager.clear_pending(settings.ALLOWED_CHAT_ID)
-    return {"status": "cleared" if removed else "no_pending_found"}
+    removed_count = 0
+    for chat_id in settings.ALLOWED_CHAT_IDS:
+        if await state_manager.clear_pending(chat_id):
+            removed_count += 1
+    return {"status": "cleared" if removed_count > 0 else "no_pending_found", "cleared_count": removed_count}
 
 
 def main():

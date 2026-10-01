@@ -29,12 +29,12 @@ _bot_application: Optional[Application] = None
 
 
 def is_authorized(chat_id: int) -> bool:
-    """Verify if the incoming chat ID matches the ALLOWED_CHAT_ID setting."""
+    """Verify if the incoming chat ID is in the ALLOWED_CHAT_IDS list."""
     settings = get_settings()
-    if not settings.ALLOWED_CHAT_ID:
-        logger.warning("ALLOWED_CHAT_ID is not configured. Rejecting all requests.")
+    if not settings.ALLOWED_CHAT_IDS:
+        logger.warning("ALLOWED_CHAT_IDS is not configured. Rejecting all requests.")
         return False
-    return chat_id == settings.ALLOWED_CHAT_ID
+    return chat_id in settings.ALLOWED_CHAT_IDS
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -467,7 +467,7 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def send_transaction_alert(amount: float, raw_text: str, app_name: str) -> None:
-    """Send alert to the allowed Telegram user regarding a newly detected transaction.
+    """Send alert to all allowed Telegram users regarding a newly detected transaction.
 
     Called by the FastAPI webhook endpoint.
     """
@@ -478,18 +478,9 @@ async def send_transaction_alert(amount: float, raw_text: str, app_name: str) ->
         logger.error("Telegram bot application is not initialized. Cannot send alert.")
         return
 
-    if not settings.ALLOWED_CHAT_ID:
-        logger.error("ALLOWED_CHAT_ID is not configured. Cannot send alert.")
+    if not settings.ALLOWED_CHAT_IDS:
+        logger.error("ALLOWED_CHAT_IDS is empty or not configured. Cannot send alert.")
         return
-
-    # Store in state manager
-    pending = PendingTransaction(
-        amount=amount,
-        raw_text=raw_text,
-        app_name=app_name,
-        chat_id=settings.ALLOWED_CHAT_ID,
-    )
-    await state_manager.set_pending(settings.ALLOWED_CHAT_ID, pending)
 
     formatted_text = (
         "🔔 *New Transaction Detected!*\n\n"
@@ -499,19 +490,29 @@ async def send_transaction_alert(amount: float, raw_text: str, app_name: str) ->
         "👉 *What was this for?* (Reply with a text message or voice note)"
     )
 
-    try:
-        await _bot_application.bot.send_message(
-            chat_id=settings.ALLOWED_CHAT_ID,
-            text=formatted_text,
-            parse_mode=ParseMode.MARKDOWN,
+    for target_chat_id in settings.ALLOWED_CHAT_IDS:
+        # Store in state manager for each chat ID
+        pending = PendingTransaction(
+            amount=amount,
+            raw_text=raw_text,
+            app_name=app_name,
+            chat_id=target_chat_id,
         )
-        logger.info(
-            "Transaction alert sent to Telegram chat %d for amount $%.2f",
-            settings.ALLOWED_CHAT_ID,
-            amount,
-        )
-    except Exception as e:
-        logger.error("Failed to send Telegram transaction alert: %s", e, exc_info=True)
+        await state_manager.set_pending(target_chat_id, pending)
+
+        try:
+            await _bot_application.bot.send_message(
+                chat_id=target_chat_id,
+                text=formatted_text,
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            logger.info(
+                "Transaction alert sent to Telegram chat %d for amount $%.2f",
+                target_chat_id,
+                amount,
+            )
+        except Exception as e:
+            logger.error("Failed to send Telegram transaction alert to chat %d: %s", target_chat_id, e, exc_info=True)
 
 
 def create_bot_application() -> Application:
