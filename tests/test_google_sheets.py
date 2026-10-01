@@ -9,8 +9,8 @@ class TestGoogleSheetsDatabase(unittest.TestCase):
     """Unit tests for Google Sheets database wrapper."""
 
     def test_default_headers(self):
-        """Verify column headers requirement: [Date, Amount, Currency, Category, Description, Bank]."""
-        expected_columns = ["Date", "Amount", "Currency", "Category", "Description", "Bank"]
+        """Verify column headers requirement: [Date, Amount, Currency, Category, Sub Category, Is Refund, Description, Bank]."""
+        expected_columns = ["Date", "Amount", "Currency", "Category", "Sub Category", "Is Refund", "Description", "Bank"]
         self.assertEqual(DEFAULT_HEADERS, expected_columns)
 
     def test_is_configured_logic(self):
@@ -31,6 +31,8 @@ class TestGoogleSheetsDatabase(unittest.TestCase):
             record = ExpenseRecord(
                 amount=50000.0,
                 category="Food & Dining",
+                sub_category="Social & Cafe",
+                is_refund=False,
                 description="Dinner with friends",
                 date="2026-08-21",
                 currency="Toman",
@@ -41,12 +43,14 @@ class TestGoogleSheetsDatabase(unittest.TestCase):
 
             self.assertEqual(result["amount"], 50000.0)
             self.assertEqual(result["category"], "Food & Dining")
+            self.assertEqual(result["sub_category"], "Social & Cafe")
+            self.assertFalse(result["is_refund"])
             self.assertEqual(result["bank"], "Mellat")
             self.assertEqual(result["currency"], "Toman")
 
             # Verify gspread append_row arguments
             mock_worksheet.append_row.assert_called_once_with(
-                ["2026-08-21", 50000.0, "Toman", "Food & Dining", "Dinner with friends", "Mellat"],
+                ["2026-08-21", 50000.0, "Toman", "Food & Dining", "Social & Cafe", False, "Dinner with friends", "Mellat"],
                 value_input_option="USER_ENTERED",
             )
 

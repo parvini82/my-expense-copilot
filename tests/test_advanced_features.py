@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import io
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -91,9 +92,10 @@ class TestAdvancedFeatures(unittest.TestCase):
         """Test budget alert triggers when total exceeds the configured threshold."""
         async def _run():
             mock_bot = AsyncMock()
+            current_month = datetime.date.today().strftime("%Y-%m")
             mock_df = pd.DataFrame([
                 {
-                    "Date": "2026-08-10",
+                    "Date": f"{current_month}-10",
                     "Amount": 1800000.0,
                     "Category": "Food & Dining",
                     "Description": "Dinner 1",
@@ -101,7 +103,7 @@ class TestAdvancedFeatures(unittest.TestCase):
                     "Bank": "Mellat",
                 },
                 {
-                    "Date": "2026-08-20",
+                    "Date": f"{current_month}-20",
                     "Amount": 500000.0,
                     "Category": "Food & Dining",
                     "Description": "Dinner 2",

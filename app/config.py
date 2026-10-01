@@ -35,7 +35,7 @@ class Settings(BaseSettings):
         description="Base URL for OpenRouter API endpoints",
     )
     OPENROUTER_MODEL: str = Field(
-        default="openai/gpt-4o-mini",
+        default="google/gemini-2.5-flash-exp:free",
         description="Model identifier to use via OpenRouter",
     )
 

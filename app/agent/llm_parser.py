@@ -12,19 +12,23 @@ logger = logging.getLogger("expense_agent.llm_parser")
 
 
 class ExpenseRecord(BaseModel):
-    """Structured representation of a categorized personal expense."""
+    """Structured representation of a categorized personal transaction."""
 
     amount: float = Field(
         ...,
-        description="The monetary value / cost of the transaction as a floating-point number.",
+        description="The monetary value of the transaction as a floating-point number.",
     )
     category: str = Field(
         ...,
-        description=(
-            "The category of the expense. Common options include: "
-            "Food & Dining, Groceries, Shopping, Transportation, Entertainment, "
-            "Utilities & Bills, Healthcare & Fitness, Travel, Subscriptions, Miscellaneous."
-        ),
+        description="Main category of the transaction matching the required taxonomy.",
+    )
+    sub_category: str = Field(
+        ...,
+        description="Specific subcategory matching the main category taxonomy.",
+    )
+    is_refund: bool = Field(
+        default=False,
+        description="Set to True if this transaction is a shared expense refund / Dong (e.g. دنگ, سهم). Default False.",
     )
     description: str = Field(
         ...,
@@ -147,7 +151,7 @@ def get_llm_client() -> ChatOpenAI:
     settings = get_settings()
     api_key = settings.OPENROUTER_API_KEY or os.getenv("OPENROUTER_API_KEY", "")
     api_base = settings.OPENROUTER_BASE_URL or "https://openrouter.ai/api/v1"
-    model_name = settings.OPENROUTER_MODEL or "openai/gpt-4o-mini"
+    model_name = settings.OPENROUTER_MODEL or "google/gemini-2.5-flash-exp:free"
 
     if not api_key:
         logger.warning("OPENROUTER_API_KEY is not set. LLM calls may fail.")
@@ -178,20 +182,38 @@ async def parse_expense_with_llm(
         raw_notification: Original bank notification text for extra context.
 
     Returns:
-        ExpenseRecord: Pydantic structured model with amount, category, description, and date.
+        ExpenseRecord: Pydantic structured model with amount, category, sub_category, is_refund, description, and date.
     """
     current_date = datetime.date.today().isoformat()
     raw_ctx = raw_notification or "N/A"
 
     system_prompt = (
-        "You are an expert personal finance assistant. "
-        "Your role is to categorize and summarize personal expense transactions.\n\n"
+        "You are an expert personal finance assistant.\n"
+        "Your role is to strictly categorize and summarize personal transactions using the hierarchical taxonomy below.\n\n"
         f"Today's Date: {current_date}\n\n"
-        "Guidelines:\n"
+        "Taxonomy Guidelines:\n"
+        "Expenses:\n"
+        "  - Food & Dining: Personal Meals / Social & Cafe / Snacks & Daily Treats / Supermarket\n"
+        "  - Relationship & Partner: Date & Outings / Gifts & Shopping\n"
+        "  - Transportation: Ride-hailing / Fuel & Car / Public Transit\n"
+        "  - Personal Care & Shopping: Clothing / Grooming & Hygiene\n"
+        "  - Bills & Utilities: Mobile Data / Subscriptions\n"
+        "  - Healthcare: Pharmacy / Doctor Visits\n"
+        "  - Savings & Investments: Vault Transfer / Gold & Crypto\n"
+        "Incomes:\n"
+        "  - Salary & Earnings: Fixed Salary / Bonus & Project\n"
+        "  - Family: Allowance from Father / Gifts\n"
+        "  - Internal Transfers: Savings Transfer\n"
+        "  - Shared Expense Refunds (\"Dong\"): Friends' Share / Shared Purchase\n"
+        "  - Other: Bank Interest / Miscellaneous\n\n"
+        "STRICT REFUND RULE (\"Dong\"):\n"
+        "If the user input indicates the inflow is someone paying back their share (e.g., \"دنگ\", \"سهم\", \"dong\", \"share\"), "
+        "you MUST set category=\"Shared Expense Refunds\", set the relevant sub_category (e.g. \"Friends' Share\" or \"Shared Purchase\"), and MUST set is_refund=True.\n"
+        "Otherwise, set is_refund=False by default.\n\n"
+        "General Field Rules:\n"
         "1. Amount: Use the provided detected amount unless the user explicitly specifies a different amount in their explanation.\n"
-        "2. Category: Select the best fit among standard categories: "
-        "[Food & Dining, Groceries, Shopping, Transportation, Entertainment, Utilities & Bills, Healthcare & Fitness, Travel, Subscriptions, Miscellaneous].\n"
-        "3. Description: Write a clear, concise summary of what was purchased (can be in Persian or English based on user input).\n"
+        "2. Category & Sub-category: Select the exact main category and subcategory from the taxonomy.\n"
+        "3. Description: Write a clear, concise summary of the transaction (in Persian or English based on user input).\n"
         "4. Date: Return the date in YYYY-MM-DD format (use today's date if not specified otherwise).\n"
     )
 
@@ -251,9 +273,13 @@ async def parse_expense_with_llm(
             if user_extracted:
                 fallback_amount = user_extracted
 
+        is_refund_fallback = any(k in (user_explanation or "") for k in ["دنگ", "سهم", "dong"])
+
         return ExpenseRecord(
             amount=fallback_amount,
-            category="Miscellaneous",
+            category="Shared Expense Refunds" if is_refund_fallback else "Other",
+            sub_category="Friends' Share" if is_refund_fallback else "Miscellaneous",
+            is_refund=is_refund_fallback,
             description=user_explanation[:100] if user_explanation else "Bank Transaction",
             date=current_date,
         )

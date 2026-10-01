@@ -17,7 +17,7 @@ SCOPES = [
 ]
 
 # Standard Sheet Column Headers
-DEFAULT_HEADERS = ["Date", "Amount", "Currency", "Category", "Description", "Bank"]
+DEFAULT_HEADERS = ["Date", "Amount", "Currency", "Category", "Sub Category", "Is Refund", "Description", "Bank"]
 
 
 class GoogleSheetsDatabase:
@@ -133,7 +133,7 @@ class GoogleSheetsDatabase:
     ) -> Dict[str, Any]:
         """Append a new expense row to Google Sheets asynchronously.
 
-        Columns: [Date, Amount, Currency, Category, Description, Bank]
+        Columns: [Date, Amount, Currency, Category, Sub Category, Is Refund, Description, Bank]
 
         Args:
             expense_data: Pydantic ExpenseRecord or dict containing expense attributes.
@@ -154,7 +154,9 @@ class GoogleSheetsDatabase:
 
             date_val = str(record.get("date", ""))
             amount_val = float(record.get("amount", 0.0))
-            category_val = str(record.get("category", "Miscellaneous"))
+            category_val = str(record.get("category", "Other"))
+            sub_category_val = str(record.get("sub_category", "Miscellaneous"))
+            is_refund_val = bool(record.get("is_refund", False))
             desc_val = str(record.get("description", ""))
             curr_val = currency or record.get("currency") or self.settings.DEFAULT_CURRENCY or "Toman"
             bank_val = bank or record.get("bank") or "Bank"
@@ -164,6 +166,8 @@ class GoogleSheetsDatabase:
                 amount_val,
                 curr_val,
                 category_val,
+                sub_category_val,
+                is_refund_val,
                 desc_val,
                 bank_val,
             ]

@@ -10,12 +10,14 @@ from app.database.mock_db import mock_db
 
 logger = logging.getLogger("expense_agent.qa_agent")
 
-QA_SYSTEM_PREFIX = """You are an intelligent financial analyst assistant for personal expenses.
+QA_SYSTEM_PREFIX = """You are an intelligent financial analyst assistant for personal expenses and transactions.
 You have access to a pandas dataframe 'df' containing the user's recorded expenses with columns:
 - 'Date': Date of transaction (YYYY-MM-DD)
-- 'Amount': Numerical monetary amount spent
+- 'Amount': Numerical monetary amount spent/received
 - 'Currency': Currency label (e.g., Toman, Rial, USD)
-- 'Category': Expense category (e.g., Food & Dining, Groceries, Shopping, Transportation, etc.)
+- 'Category': Main transaction category (e.g., Food & Dining, Relationship & Partner, Transportation, Shared Expense Refunds, etc.)
+- 'Sub Category': Specific subcategory (e.g., Personal Meals, Friends' Share, Supermarket, etc.)
+- 'Is Refund': Boolean (True/False) indicating if transaction is a shared expense refund ("Dong")
 - 'Description': Description/details of the purchase
 - 'Bank': Source bank or payment method
 
@@ -32,29 +34,34 @@ Instructions:
 
 def _prepare_dataframe(raw_records: List[Dict[str, Any]]) -> pd.DataFrame:
     """Convert raw expense records into a normalized pandas DataFrame."""
+    required_cols = ["Date", "Amount", "Currency", "Category", "Sub Category", "Is Refund", "Description", "Bank"]
     if not raw_records:
-        return pd.DataFrame(columns=["Date", "Amount", "Currency", "Category", "Description", "Bank"])
+        return pd.DataFrame(columns=required_cols)
 
     # 1. Normalize dictionary keys to avoid duplicate columns (e.g. 'amount' vs 'Amount')
     normalized_records = []
     for item in raw_records:
         row = {}
         for k, v in item.items():
-            key_lower = str(k).strip().lower()
-            if key_lower == "date":
+            key_clean = str(k).strip().lower().replace("_", " ")
+            if key_clean == "date":
                 row["Date"] = str(v)
-            elif key_lower == "amount":
+            elif key_clean == "amount":
                 try:
                     row["Amount"] = float(v)
                 except (ValueError, TypeError):
                     row["Amount"] = 0.0
-            elif key_lower == "currency":
+            elif key_clean == "currency":
                 row["Currency"] = str(v)
-            elif key_lower == "category":
+            elif key_clean == "category":
                 row["Category"] = str(v)
-            elif key_lower == "description":
+            elif key_clean in ("sub category", "subcategory"):
+                row["Sub Category"] = str(v)
+            elif key_clean in ("is refund", "isrefund"):
+                row["Is Refund"] = bool(v) if not isinstance(v, str) else v.lower() in ("true", "1", "yes")
+            elif key_clean == "description":
                 row["Description"] = str(v)
-            elif key_lower == "bank":
+            elif key_clean == "bank":
                 row["Bank"] = str(v)
             else:
                 row[k] = v
@@ -63,19 +70,26 @@ def _prepare_dataframe(raw_records: List[Dict[str, Any]]) -> pd.DataFrame:
     df = pd.DataFrame(normalized_records)
 
     # 2. Ensure required columns exist
-    for col in ["Date", "Amount", "Currency", "Category", "Description", "Bank"]:
+    for col in required_cols:
         if col not in df.columns:
-            df[col] = "" if col != "Amount" else 0.0
+            if col == "Amount":
+                df[col] = 0.0
+            elif col == "Is Refund":
+                df[col] = False
+            else:
+                df[col] = ""
 
     # 3. Clean types
     df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0.0)
     df["Currency"] = df["Currency"].replace("", "Toman").fillna("Toman")
     df["Date"] = df["Date"].astype(str)
     df["Category"] = df["Category"].astype(str)
+    df["Sub Category"] = df["Sub Category"].astype(str)
+    df["Is Refund"] = df["Is Refund"].astype(bool)
     df["Description"] = df["Description"].astype(str)
     df["Bank"] = df["Bank"].astype(str)
 
-    return df[["Date", "Amount", "Currency", "Category", "Description", "Bank"]]
+    return df[required_cols]
 
 
 async def fetch_expenses_dataframe() -> pd.DataFrame:

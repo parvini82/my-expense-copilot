@@ -368,11 +368,14 @@ async def process_user_expense_input(
         except Exception:
             pass
 
-        # Format pleasant receipt confirmation
+        # Format pleasant receipt confirmation with sub-category and refund indicator
+        refund_indicator = " 🔄 *(Refund / Dong)*" if record.is_refund else ""
+        sub_cat_display = f" › `{html.escape(record.sub_category)}`" if record.sub_category else ""
+
         receipt_msg = (
-            "✅ *Expense Logged Successfully!*\n\n"
+            f"✅ *Expense Logged Successfully!*{refund_indicator}\n\n"
             f"💵 *Amount:* `{record.amount:,.2f}` *{html.escape(record.currency or 'Toman')}*\n"
-            f"🏷 *Category:* `{html.escape(record.category)}`\n"
+            f"🏷 *Category:* `{html.escape(record.category)}`{sub_cat_display}\n"
             f"📝 *Description:* {html.escape(record.description)}\n"
             f"🏦 *Bank:* `{html.escape(bank_name)}`\n"
             f"📅 *Date:* `{record.date}`\n"

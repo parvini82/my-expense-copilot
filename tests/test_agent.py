@@ -52,11 +52,13 @@ class TestExpenseAgent(unittest.TestCase):
         record = ExpenseRecord(
             amount=25.50,
             category="Food & Dining",
+            sub_category="Personal Meals",
             description="Dinner at Chipotle",
             date="2026-08-21",
         )
         self.assertEqual(record.amount, 25.50)
         self.assertEqual(record.category, "Food & Dining")
+        self.assertEqual(record.sub_category, "Personal Meals")
         self.assertEqual(record.description, "Dinner at Chipotle")
         self.assertEqual(record.date, "2026-08-21")
 
@@ -109,7 +111,8 @@ class TestExpenseAgent(unittest.TestCase):
                 # Save record
                 exp = ExpenseRecord(
                     amount=19.99,
-                    category="Subscriptions",
+                    category="Bills & Utilities",
+                    sub_category="Subscriptions",
                     description="Monthly Netflix subscription",
                     date="2026-08-21",
                 )
@@ -119,7 +122,8 @@ class TestExpenseAgent(unittest.TestCase):
                 records = await db.get_all_expenses()
                 self.assertEqual(len(records), 1)
                 self.assertEqual(records[0]["amount"], 19.99)
-                self.assertEqual(records[0]["category"], "Subscriptions")
+                self.assertEqual(records[0]["category"], "Bills & Utilities")
+                self.assertEqual(records[0]["sub_category"], "Subscriptions")
             finally:
                 if os.path.exists(test_db_path):
                     os.remove(test_db_path)
@@ -138,12 +142,14 @@ class TestExpenseAgent(unittest.TestCase):
                 record = ExpenseRecord(
                     amount=50000.0,
                     category="Food & Dining",
+                    sub_category="Personal Meals",
                     description="ناهار رستوران (Restaurant Lunch)",
                     date="2026-08-21",
                 )
                 saved = await db.save_expense(record)
                 self.assertEqual(saved["amount"], 50000.0)
                 self.assertEqual(saved["category"], "Food & Dining")
+                self.assertEqual(saved["sub_category"], "Personal Meals")
                 self.assertEqual(saved["description"], "ناهار رستوران (Restaurant Lunch)")
 
                 # Verify persistent read from disk
