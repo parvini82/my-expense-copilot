@@ -56,9 +56,6 @@ PERSIAN_ARABIC_DIGITS_TABLE = str.maketrans({
     "٥": "5", "٦": "6", "٧": "7", "٨": "8", "٩": "9",
 })
 
-# Deposit keywords indicating income/deposit rather than expense
-DEPOSIT_KEYWORDS = ["واریز", "نشست", "به حساب شما", "واریز شد", "بستانکار"]
-
 
 def extract_amount_from_notification(text: str) -> Optional[float]:
     """Extract monetary transaction amount from bank notifications.
@@ -67,7 +64,6 @@ def extract_amount_from_notification(text: str) -> Optional[float]:
     - Iranian/Persian bank notifications (Rial, Toman, ریال, تومان)
     - Persian/Arabic digit conversion ('۰'-'۹' -> '0'-'9')
     - Removal of standard and Persian commas (',', '،')
-    - Deposit detection ('واریز', 'نشست', 'به حساب شما') -> returns 0.0
     - Stripping out account balances after 'موجودی' or 'مانده'
     - International currencies ($45.20, €15.00, £12.50, USD, EUR)
     """
@@ -80,12 +76,7 @@ def extract_amount_from_notification(text: str) -> Optional[float]:
     # 2. Remove all standard commas and Persian commas
     normalized_text = normalized_text.replace(",", "").replace("،", "")
 
-    # 3. Check for deposit keywords -> return 0.0 (expenses only)
-    if any(keyword in normalized_text for keyword in DEPOSIT_KEYWORDS):
-        logger.info("Deposit/income keyword detected in notification. Returning amount=0.0 (skipping expense).")
-        return 0.0
-
-    # 4. Strip out account balance by removing text starting from 'موجودی' or 'مانده'
+    # 3. Strip out account balance by removing text starting from 'موجودی' or 'مانده'
     # Using re.DOTALL so it strips across multiple lines if present
     stripped_text = re.sub(
         r"(?:موجودی|مانده|balance|available(?:\s+balance)?).*$",

@@ -24,10 +24,10 @@ class TestExpenseAgent(unittest.TestCase):
             ("Purchase of 150000 Toman approved. Balance: 400000 Toman", 150000.0),
             # Rial in English letters
             ("Payment: 250000 Rial. Available balance: 1000000 Rial", 250000.0),
-            # Deposit / Income notification (returns 0.0)
-            ("واریز مبلغ 1,000,000 ریال به حساب شما", 0.0),
-            ("مبلغ ۲،۰۰۰،۰۰۰ ریال به حساب شما نشست موجودی: ۵،۰۰۰،۰۰۰ ریال", 0.0),
-            ("واریز شد: 500,000 تومان", 0.0),
+            # Deposit / Income notification (extracts monetary amount normally)
+            ("واریز مبلغ 1,000,000 ریال به حساب شما", 1000000.0),
+            ("مبلغ ۲،۰۰۰،۰۰۰ ریال به حساب شما نشست موجودی: ۵،۰۰۰،۰۰۰ ریال", 2000000.0),
+            ("واریز شد: 500,000 تومان", 500000.0),
             # International formats
             ("Chase: You made a $42.50 purchase at WHOLEFDS.", 42.50),
             ("Alert: Debit of USD 12.99 from Account ending in 1234", 12.99),

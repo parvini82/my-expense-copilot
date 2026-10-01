@@ -158,17 +158,7 @@ async def mobile_webhook(
     if detected_amount is not None:
         logger.info("Extracted amount from notification: %s", amount)
     else:
-        logger.warning("Could not automatically extract amount from text: '%s'", payload.text)
-
-    # If deposit detected (amount explicitly 0.0 from deposit keyword), skip expense alert
-    if detected_amount == 0.0:
-        logger.info("Deposit/income notification detected. Skipping Telegram alert.")
-        return {
-            "status": "ignored",
-            "message": "Deposit notification detected. No expense alert triggered.",
-            "detected_amount": 0.0,
-            "app_name": payload.app_name,
-        }
+        logger.warning("Could not automatically extract amount from text: '%s'. Defaulting amount to 0.0.", payload.text)
 
     # 3. Trigger asynchronous Telegram alert to user
     try:
